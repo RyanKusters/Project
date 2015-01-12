@@ -4,20 +4,25 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.UUID;
 
-public class Comment<T extends Model> implements Serializable {
+import android.location.Location;
+
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.ICommentable;
+
+public class Comment<T extends ICommentable> implements Serializable {
 	
 	private static final long serialVersionUID = 2455600018596168474L;
 
 	private String body;
-	private String username;
+	private String author;
 	private UUID id;
 	private UUID parent;
 	private Date date;
+	private LocationHolder location;
 
 	public Comment() {
 		setId(new UUID(0L, 0L));
 		this.body = "";
-		this.username = "";
+		this.author = "";
 		this.parent = null;
 		setDate(new Date());
 	}
@@ -25,7 +30,7 @@ public class Comment<T extends Model> implements Serializable {
 	public Comment(UUID parent, String body, String username) {
 		setId(UUID.randomUUID());
 		this.body = body;
-		this.username = username;
+		this.author = username;
 		this.parent = parent;
 		setDate(new Date());
 	}
@@ -38,12 +43,12 @@ public class Comment<T extends Model> implements Serializable {
 		this.body = body;
 	}
 
-	public String getUsername() {
-		return username;
+	public String getAuthor() {
+		return author;
 	}
 	
-	public void setUsername(String username) {
-		this.username = username;
+	public void setAuthor(String username) {
+		this.author = username;
 	}
 
 	public UUID getId() {
@@ -69,13 +74,13 @@ public class Comment<T extends Model> implements Serializable {
 		if (!(o instanceof Comment<?>)) return false;
 		@SuppressWarnings("unchecked")
 		Comment<T> c = (Comment<T>) o;
-		return c.id.equals(this.id) && c.body.equals(this.body) && c.username.equals(this.username); 
+		return c.id.equals(this.id) && c.body.equals(this.body) && c.author.equals(this.author); 
 	}
 	
 	//Return string representation of a comment
 	@Override
 	public String toString() {
-		return String.format("Comment [%s - %s]", body, username);
+		return String.format("Comment [%s - %s]", body, author);
 	}
 
 	public Date getDate() {
@@ -84,5 +89,21 @@ public class Comment<T extends Model> implements Serializable {
 
 	public void setDate(Date date) {
 		this.date = date;
+	}
+
+	public Location getLocation() {
+		if(location == null){
+			return null;
+		}
+		return location.getLocation();
+	}
+
+	public void setLocation(LocationHolder lh) {
+		this.location = lh;
+	}
+
+	public void setLocation(Location location) {
+		
+		this.location = LocationHolder.getLocationHolder(location);
 	}
 }

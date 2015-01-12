@@ -1,5 +1,6 @@
 package ca.ualberta.cs.cmput301f14t14.questionapp.test;
 
+import java.io.IOException;
 import java.util.UUID;
 
 import android.test.ActivityInstrumentationTestCase2;
@@ -89,8 +90,13 @@ public class CommentTest extends ActivityInstrumentationTestCase2<MainActivity> 
 		mQuestion.addComment(mComment.getId());
 		UUID id = mComment.getId();
 		assertNotNull(mQuestion.hasComment(mComment.getId()));
-		remote.putQComment(mComment);
-		remote.putQuestion(mQuestion);
+		try {
+			remote.putQComment(mComment);
+			remote.putQuestion(mQuestion);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		assertTrue(mQuestion.hasComment(mComment.getId()));
 		
 		// adding to answer
@@ -100,7 +106,12 @@ public class CommentTest extends ActivityInstrumentationTestCase2<MainActivity> 
 		UUID secId = mComment.getId();
 		assertNotNull(manager.getAnswerComment(secId, null));
 		remote.putAComment(secComment);
-		remote.putAnswer(mAnswer);
+		try {
+			remote.putAnswer(mAnswer);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		assertTrue(mQuestion.hasComment(mComment.getId()));
 	}
 	

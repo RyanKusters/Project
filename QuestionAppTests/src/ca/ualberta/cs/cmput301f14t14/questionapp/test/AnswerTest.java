@@ -1,5 +1,6 @@
 package ca.ualberta.cs.cmput301f14t14.questionapp.test;
 
+import java.io.IOException;
 import java.util.UUID;
 
 import android.test.ActivityInstrumentationTestCase2;
@@ -52,7 +53,7 @@ public class AnswerTest extends ActivityInstrumentationTestCase2<MainActivity> {
 	 */
 	public void testInvalidBody() {
 		// Test invalid body
-		Image image = new Image(null,null);
+		Image image = new Image(null);
 		try {
 			new Answer(mQuestion.getId(), null, "Author", image);
 			fail();
@@ -81,8 +82,13 @@ public class AnswerTest extends ActivityInstrumentationTestCase2<MainActivity> {
 		UUID aId = mAnswer.getId();
 		assertNotNull(manager.getAnswer(aId, null));
 		
-		remote.putAnswer(mAnswer);
-		remote.putQuestion(mQuestion);
+		try {
+			remote.putAnswer(mAnswer);
+			remote.putQuestion(mQuestion);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		//assertNotNull(remote.getAnswer(aId));
 		assertTrue(mQuestion.hasAnswer(mAnswer.getId()));
 	}

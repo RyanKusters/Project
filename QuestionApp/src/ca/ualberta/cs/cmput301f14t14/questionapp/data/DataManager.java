@@ -1,18 +1,19 @@
 package ca.ualberta.cs.cmput301f14t14.questionapp.data;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 import android.content.Context;
+import android.content.Intent;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
 
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.eventbus.EventBus;
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.eventbus.events.AbstractEvent;
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.eventbus.events.AnswerCommentPushDelayedEvent;
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.eventbus.events.AnswerPushDelayedEvent;
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.eventbus.events.QuestionCommentPushDelayedEvent;
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.eventbus.events.QuestionPushDelayedEvent;
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.AddAnswerCommentTask;
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.AddAnswerTask;
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.AddQuestionCommentTask;
@@ -20,11 +21,11 @@ import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.AddQuestionTask;
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetAnswerCommentTask;
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetAnswerListTask;
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetAnswerTask;
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetCommentListAnsTask;
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetCommentListQuesTask;
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetCommentListTask;
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetQuestionCommentTask;
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetQuestionListTask;
 import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.GetQuestionTask;
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.UpvoteQuestionTask;
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.UploaderService;
 import ca.ualberta.cs.cmput301f14t14.questionapp.model.Answer;
 import ca.ualberta.cs.cmput301f14t14.questionapp.model.Comment;
 import ca.ualberta.cs.cmput301f14t14.questionapp.model.Question;
@@ -38,24 +39,24 @@ public class DataManager {
 
 	private IDataStore localDataStore;
 	private IDataStore remoteDataStore;
-	private List<UUID> favouriteQuestions;
-	private List<UUID> favouriteAnswers;
 	private List<UUID> recentVisit;
 	private List<UUID> readLater;
-	//private List<UUID> pushOnline;
-	//private List<UUID> upVoteOnline;
-	private Context singletoncontext; //Needed for Threading instantiations
+	private Context context;
 	String Username;
+	static final String favQ = "fav_Que";
+	static final String favA = "fav_Ans";
+	static final String recV = "rec_Vis";
+	static final String redL = "red_Lat";
+	static final String pusO = "pus_Onl";
+	static final String upvO = "upv_Onl";
+
 	
 	private EventBus eventbus = EventBus.getInstance();
 
+
 	
 	private DataManager(Context context) {
-		//Deprecated. Use the eventbus instead for events that need to happen
-		//upon future internet access
-		//this.pushOnline = new ArrayList<UUID>();
-		//this.upVoteOnline = new ArrayList<UUID>();
-		this.singletoncontext = context;
+		this.context = context;
 	}
 
 	/**
@@ -65,8 +66,8 @@ public class DataManager {
 	 * refer back to DataManager, and cannot do so until it is constructed.
 	 */
 	private void initDataStores() {
-		this.localDataStore = new LocalDataStore(singletoncontext);
-		this.remoteDataStore = new RemoteDataStore(singletoncontext);
+		this.localDataStore = new LocalDataStore(context);
+		this.remoteDataStore = new RemoteDataStore(context);
 	}
 
 	/**
@@ -82,42 +83,21 @@ public class DataManager {
 		
 		return instance;
 	}
-	
-	private void completeQueuedEvents() {
-		//The singleton eventbus contains events that attempted to 
-		//be posted to the internet. If posting failed, an event was created
-		//on the eventbus. These queued events should regularly "tried again"
-		//so that we are as frequently as possible trying to update the internet
-		//with our new local information.
-		//I believe this is the magic that is currently missing to make the DataManager
-		//transparently update the local and remote stores.
-		
-		//For each event in the event bus, try and do it again.
-		for (AbstractEvent e: eventbus.getEventQueue()){				
-			/* Remove the current event from the eventbus. If "trying again" fails,
-			 * it will happen in a separate thread, and it will again be added to the bus
-			 */
-			eventbus.removeEvent(e);
-			
-			if (e instanceof QuestionPushDelayedEvent) {
-				//try pushing the question again
-				addQuestion(((QuestionPushDelayedEvent) e).q, null);
-			}
-			if (e instanceof AnswerPushDelayedEvent) {
-				addAnswer(((AnswerPushDelayedEvent) e).a);
-			}
-			if (e instanceof QuestionCommentPushDelayedEvent) {
-				addQuestionComment(((QuestionCommentPushDelayedEvent) e).qc);
-			}
-			if (e instanceof AnswerCommentPushDelayedEvent) {
-				addAnswerComment(((AnswerCommentPushDelayedEvent)e).ca);
-			}
+	/**
+	 * Starts the uploader service that copies cached creations in local to remote.
+	 */
+	public void startUploaderService() {
+		//Hackery. No idea how to start a service only once and not get into threading problems.
+		if (UploaderService.isServiceAlreadyRunning == false) {
+			Intent i = new Intent(context, UploaderService.class);
+			context.startService(i);
 		}
 	}
 	
+	
 	//View Interface Begins
 	public void addQuestion(Question validQ, Callback<Void> c) {
-		AddQuestionTask aqt = new AddQuestionTask(this.singletoncontext);
+		AddQuestionTask aqt = new AddQuestionTask(context);
 		aqt.setCallBack(c);
 		aqt.execute(validQ);
 	}
@@ -128,29 +108,13 @@ public class DataManager {
 	 * @return
 	 */
 	public Question getQuestion(UUID id, Callback<Question> c) {
-		//Need to add the question we got into the recentVisit list
-		GetQuestionTask gqt = new GetQuestionTask(singletoncontext);
-		Question qnull = null;
+		GetQuestionTask task = new GetQuestionTask(context);
 		if (c == null) {
-			//User wants a question from within a thread, or doesn't care about threading
-			//AsyncTasks cannot be nested as they run in one threadpool. Therefore, we must
-			//do something evil
-			return gqt.blockingRun(new UUID[]{id});
+			return task.blockingRun(id);
 		}
-		gqt.setCallBack(new Callback<Question>() {
-			@Override
-			public void run(Question q) {
-				recentVisit.add(q.getId());
-			}
-		});
-		gqt.execute(id);
-		//Now need to call the gqt with the callback the user actually wanted.
-		gqt.setCallBack(c);
-		gqt.execute(id);
-		//Each caller of this method will have a callback that can grab the question.
-		//the activities will do stuff so that this method call doesn't block
-		//This method should not return anything. The callback should fetch it.
-		return qnull;
+		task.setCallBack(c);
+		task.execute(id);
+		return null;
 		 
 	}
 	
@@ -159,8 +123,8 @@ public class DataManager {
 	 * @param A Answer to add
 	 */
 	public void addAnswer(Answer A){
-		AddAnswerTask aat = new AddAnswerTask(singletoncontext);
-		aat.blockingRun(A);
+		AddAnswerTask aat = new AddAnswerTask(context);
+		aat.execute(A);
 	}
 
 	/**
@@ -170,20 +134,12 @@ public class DataManager {
 	 */
 	public Answer getAnswer(UUID Aid, Callback<Answer> c) {
 		//Add this answer to the recentVisit list
-		GetAnswerTask gat = new GetAnswerTask(singletoncontext);
+		GetAnswerTask gat = new GetAnswerTask(context);
 		Answer anull = null;
 		if (c == null) {
 			//User wants an answer within a thread, or doesn't care about blocking.
 			return gat.blockingRun(Aid);
 		}
-		gat.setCallBack(new Callback<Answer>() {
-			@Override
-			public void run(Answer a) {
-				recentVisit.add(a.getId());
-			}
-		});
-		gat.execute(Aid);
-		//Now actually use the callback that the caller wanted
 		gat.setCallBack(c);
 		gat.execute(Aid);
 		return anull; //Hopefully eclipse will warn users this method always returns null
@@ -194,7 +150,7 @@ public class DataManager {
 	 * @param C
 	 */
 	public void addQuestionComment(Comment<Question> C){
-		AddQuestionCommentTask aqct = new AddQuestionCommentTask(singletoncontext);
+		AddQuestionCommentTask aqct = new AddQuestionCommentTask(context);
 		aqct.execute(C); //May have a problem here. Look here first if crashing.
 	}
 
@@ -205,22 +161,12 @@ public class DataManager {
 	 */
 	//Wtf, when I added a Callback parameter, nothing broke... Is this 
 	//method actually called anywhere in the app?
-	public Comment<Question> getQuestionComment(UUID cid, Callback<Comment<Question>> c) {
-		GetQuestionCommentTask gqct = new GetQuestionCommentTask(singletoncontext);
+	public Comment<Question> getQuestionComment(UUID cid, Callback<Comment<? extends ICommentable>> c) {
+		GetQuestionCommentTask gqct = new GetQuestionCommentTask(context);
 		if (c == null){
 			//User does not care about blocking
-			return gqct.blockingRun(cid);
+			return (Comment<Question>) gqct.blockingRun(cid);
 		}
-		//User cares about threading
-		//Add this questionComment to the recentVisit list
-		gqct.setCallBack(new Callback<Comment<Question>>() {
-			@Override
-			public void run(Comment<Question> cq) {
-				readLater.add(cq.getId());
-			}
-		});
-		gqct.execute(cid);
-		//Now run with the callback the user wanted
 		gqct.setCallBack(c);
 		gqct.execute(cid);
 		//If the user is using threading, they will care to extract their result from the callback
@@ -233,7 +179,7 @@ public class DataManager {
 	 * @param C
 	 */
 	public void addAnswerComment(Comment<Answer> C){
-		AddAnswerCommentTask aact = new AddAnswerCommentTask(singletoncontext);
+		AddAnswerCommentTask aact = new AddAnswerCommentTask(context);
 		aact.execute(C);  //Possibly trouble here.
 	}
 
@@ -244,22 +190,12 @@ public class DataManager {
 	 */
 	//Another case where adding a callback to the function signature didn't break the app
 	//Are we using this?
-	public Comment<Answer> getAnswerComment(UUID Cid, Callback<Comment<Answer>> c){
-		GetAnswerCommentTask gact = new GetAnswerCommentTask(singletoncontext);
+	public Comment<Answer> getAnswerComment(UUID Cid, Callback<Comment<? extends ICommentable>> c){
+		GetAnswerCommentTask gact = new GetAnswerCommentTask(context);
 		if (c == null) {
 			//User doesn't care about threading and expects this to be blocking.
-			return gact.blockingRun(Cid);
+			return (Comment<Answer>) gact.blockingRun(Cid);
 		}
-		//Need to add this to the recentVisit list.
-		gact.setCallBack(new Callback<Comment<Answer>>() {
-			@Override
-			public void run(Comment<Answer> ca) {
-				recentVisit.add(ca.getId());
-				
-			}
-		});
-		gact.execute(Cid);
-		//Now run with the callback the user actually wanted
 		gact.setCallBack(c);
 		gact.execute(Cid);
 		//The user, by not setting a null callback, should know to fetch the result 
@@ -273,25 +209,31 @@ public class DataManager {
 	 * This list is not returned with any particular order.
 	 * @return
 	 */
-	public List<Question> load(){
-		
-		//TO DELETE AFTER 
-		//getQuestionList is done.
-		List<Question> questionList;
-		if(remoteDataStore.hasAccess()){
-			questionList = remoteDataStore.getQuestionList();
+	public List<Question> getQuestionList(Callback callback) {
+		GetQuestionListTask task = new GetQuestionListTask(context);
+		if (callback == null) {
+			//User doesn't care this is blocking
+			return task.blockingRun();
 		}
-		else{
-			questionList = localDataStore.getQuestionList();	
-		}
-		return questionList;
+		task.setCallBack(callback);
+		task.execute();
+		//User should expect this to be null, since the result should be pulled out of the callback
+		return null;
 	}
-	//Changing function signature didn't break things. Are we using this?
+
+	/**
+	 * Get a list of comments from an answer asynchronously
+	 * @param a
+	 * @param c
+	 * @return
+	 */
 	public List<Comment<Answer>> getCommentList(Answer a, Callback<List<Comment<Answer>>> c){
-		GetCommentListAnsTask gclat = new GetCommentListAnsTask(singletoncontext);
+		GetCommentListTask<Answer> gclat = new GetCommentListTask<Answer>(context);
 		if (c == null) {
 			//User doesn't care this is blocking
 			return gclat.blockingRun(a);
+
+
 		}
 		gclat.setCallBack(c);
 		gclat.execute(a);
@@ -299,9 +241,14 @@ public class DataManager {
 		return null;
 	}
 	
-	//Function signature change didn't break things. Are we using this?
+	/**
+	 * Get a list of comments from a question asynchronously
+	 * @param q
+	 * @param c
+	 * @return
+	 */
 	public List<Comment<Question>> getCommentList(Question q, Callback<List<Comment<Question>>> c){
-		GetCommentListQuesTask gclqt = new GetCommentListQuesTask(singletoncontext);
+		GetCommentListTask<Question> gclqt = new GetCommentListTask<Question>(context);
 		if (c == null) {
 			//User doesn't care this is blocking
 			return gclqt.blockingRun(q);
@@ -313,7 +260,7 @@ public class DataManager {
 	}
 	
 	public List<Answer> getAnswerList(Question q, Callback<List<Answer>> c){
-		GetAnswerListTask galt = new GetAnswerListTask(singletoncontext);
+		GetAnswerListTask galt = new GetAnswerListTask(context);
 		if (c == null) {
 			//User does not care this is blocking
 			return galt.blockingRun(q);
@@ -324,12 +271,6 @@ public class DataManager {
 		//User should pull result out of callback
 		return null;
 	}
-	
-	public void upvoteQuestion(Question q){
-		UpvoteQuestionTask uqt = new UpvoteQuestionTask(singletoncontext);
-		uqt.execute(q);
-		
-	}
 
 	public IDataStore getLocalDataStore() {
 		return localDataStore;
@@ -337,6 +278,38 @@ public class DataManager {
 
 	public IDataStore getRemoteDataStore() {
 		return remoteDataStore;
+
+
+	}
+	// Cache old location lookups for speed
+	private HashMap<Location, String> oldloclookups = new HashMap<Location, String>();
+	
+	public String getCityFromLocation(Location l) {
+		//Go to here: http://stackoverflow.com/questions/2296377/how-to-get-city-name-from-latitude-and-longitude-coordinates-in-google-maps
+		
+		//Cache old locations for speed
+		if (oldloclookups.containsKey(l)) {
+			return oldloclookups.get(l);
+		}
+		
+		Geocoder g = new Geocoder(context, Locale.getDefault());
+		if (Geocoder.isPresent()){
+			//ROck and roll bitches we can find the place!
+			List<Address> la = null;
+			try {
+				la = g.getFromLocation(l.getLatitude(), l.getLongitude(), 1);
+			} catch (Exception e) {
+				return "a Universe";
+			}
+			if (la != null && la.size() > 0){
+				String city = la.get(0).getLocality();
+				oldloclookups.put(l, city);
+				return city;
+			}
+		} 
+		return "a Universe";
+	
+		
 	}
 
 }

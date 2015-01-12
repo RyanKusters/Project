@@ -6,8 +6,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
+import com.google.gson.annotations.SerializedName;
 
-public class Question extends Model implements Serializable {
+import android.location.Location;
+
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.ICommentable;
+
+
+public class Question extends Model implements Serializable, ICommentable {
 	
 	private static final long serialVersionUID = -8123919371607337418L;
 
@@ -16,10 +22,11 @@ public class Question extends Model implements Serializable {
 	private String body;
 	private Image image;
 	private String author;
-	private List<UUID> answerList; 
-	private List<UUID> commentList;
+	@SerializedName("answers") private List<UUID> answerList; 
+	@SerializedName("comments") private List<UUID> commentList;
 	private Date date;
-	private int upVotes;
+	private int upvotes;
+	private LocationHolder location;
 
 	public Question() {
 		id = new UUID(0L, 0L);
@@ -30,7 +37,7 @@ public class Question extends Model implements Serializable {
 		answerList = new ArrayList<UUID>();
 		commentList = new ArrayList<UUID>();
 		setDate(new Date());
-		upVotes = 0;
+		upvotes = 0;
 	}
 
 	public Question(String title, String body, String author, Image image) {
@@ -42,7 +49,7 @@ public class Question extends Model implements Serializable {
 		setImage(image);
 		this.setAnswerList(new ArrayList<UUID>());
 		this.setCommentList(new ArrayList<UUID>());
-		upVotes = 0;
+		upvotes = 0;
 		setDate(new Date());
 	}
 
@@ -89,7 +96,7 @@ public class Question extends Model implements Serializable {
 		return image;
 	}
 
-	private void setImage(Image image) {
+	public void setImage(Image image) {
 		this.image = image;
 	}
 	
@@ -113,15 +120,15 @@ public class Question extends Model implements Serializable {
 	}
 
 	public void addUpvote() {
-		upVotes++;
+		upvotes++;
 	}
 
 	public Integer getUpvotes() {
-		return upVotes;
+		return upvotes;
 	}
 	
 	public void setUpvotes(int val) {
-		upVotes = val;
+		upvotes = val;
 	}
 
 	public String getAuthor() {
@@ -172,6 +179,21 @@ public class Question extends Model implements Serializable {
 
 	public void setDate(Date date) {
 		this.date = date;
+	}
+
+	public Location getLocation() {
+		if(location == null){
+			return null;
+		}
+		return location.getLocation();
+	}
+
+	public void setLocation(LocationHolder lh) {
+		this.location = lh;
+	}
+
+	public void setLocation(Location location) {
+		this.location = LocationHolder.getLocationHolder(location);
 	}
 
 }

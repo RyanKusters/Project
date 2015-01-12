@@ -6,18 +6,25 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-public class Answer extends Model implements Serializable {
+import com.google.gson.annotations.SerializedName;
+
+import android.location.Location;
+
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.ICommentable;
+
+public class Answer extends Model implements Serializable, ICommentable {
 
 	private static final long serialVersionUID = -237004584128041997L;
 
 	private UUID id;
 	private Image image;
 	private String body;
-	private List<UUID> commentList;
+	@SerializedName("comments") private List<UUID> commentList;
 	private String author;
 	private UUID parent;
 	private Date date;
-	private int upVotes;
+	private int upvotes;
+	private LocationHolder location;
 
 	
 	public Answer() {
@@ -26,9 +33,10 @@ public class Answer extends Model implements Serializable {
 		this.author = null;
 		this.image = null;
 		this.parent = null;
+		this.setLocation((LocationHolder) null);
 		this.commentList = new ArrayList<UUID>();
 		setDate(new Date());
-		upVotes = 0;
+		upvotes = 0;
 	}
 
 	//Create answer with a parent, body, string and optional image
@@ -40,7 +48,7 @@ public class Answer extends Model implements Serializable {
 		setParent(parent);
 		setCommentList(new ArrayList<UUID>());
 		setDate(new Date());
-		upVotes = 0;
+		upvotes = 0;
 	}
 	
 	public Image getImage() {
@@ -92,11 +100,11 @@ public class Answer extends Model implements Serializable {
 	}
 
 	public Integer getUpvotes() {
-		return upVotes;
+		return upvotes;
 	}
 
 	public void addUpvote() {
-		upVotes++;
+		upvotes++;
 	}
 
 	public List<UUID> getCommentList() {
@@ -152,6 +160,21 @@ public class Answer extends Model implements Serializable {
 	}
 
 	public void setUpvotes(int upvotes) {
-		this.upVotes = upvotes;
+		this.upvotes = upvotes;
+	}
+
+	public Location getLocation() {
+		if(location == null){
+			return null;
+		}
+		return location.getLocation();
+	}
+
+	public void setLocation(LocationHolder lh) {
+		this.location = lh;
+	}
+
+	public void setLocation(Location location) {
+		this.location = LocationHolder.getLocationHolder(location);
 	}
 }

@@ -1,87 +1,85 @@
 package ca.ualberta.cs.cmput301f14t14.questionapp;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
-import ca.ualberta.cs.cmput301f14t14.questionapp.data.DataManager;
-import ca.ualberta.cs.cmput301f14t14.questionapp.model.Question;
-import ca.ualberta.cs.cmput301f14t14.questionapp.view.QuestionListAdapter;
-import android.app.ActionBar;
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.Callback;
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.GenericSearchItem;
+import ca.ualberta.cs.cmput301f14t14.questionapp.data.threading.ESSearchTask;
+import ca.ualberta.cs.cmput301f14t14.questionapp.view.GenericSearchItemAdapter;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 public class SearchActivity extends Activity {
 
-	private DataManager dataManager;
-	private QuestionListAdapter qla = null;
+	public static final String ARG_QUERY_STRING = "QUERY_STRING";
+
+	private GenericSearchItemAdapter listAdapter = null;
+	private List<GenericSearchItem> searchResult = null;
+	private String query;
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_search);
+		Intent intent = getIntent();
+		query = intent.getStringExtra(ARG_QUERY_STRING);
+
+		searchResult = new ArrayList<GenericSearchItem>();
+		listAdapter = new GenericSearchItemAdapter(
+				this, R.layout.list_generic, searchResult);
+		ListView questionView = (ListView) findViewById(R.id.search_list);
+		questionView.setAdapter(listAdapter);
+
+		questionView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+
+					@Override
+					public void onItemClick(AdapterView<?> parent, View view,
+							int position, long id) {
+						// run off to the correct view if you tap an item
+						final GenericSearchItem gItem = listAdapter.getItem(position);
+						
+						if (gItem.getType().toLowerCase(Locale.US).trim().equals("question")) {
+							UUID qId = gItem.getId();
+							Intent intent = new Intent(getApplicationContext(),
+									QuestionActivity.class);
+							intent.putExtra(QuestionActivity.ARG_QUESTION_ID, qId.toString());
+							startActivity(intent);
+						} else if (gItem.getType().toLowerCase(Locale.US).trim()
+								.equals("answer")) {
+							UUID aId = gItem.getId();
+							Intent intent = new Intent(getApplicationContext(),
+									AnswerViewActivity.class);
+							intent.putExtra("ANSWER_UUID", aId.toString());
+							startActivity(intent);
+						}
+					}
+				});
+
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		ESSearchTask esTask = new ESSearchTask(this);
+		esTask.setCallBack(new SearchResultCallback());
+		esTask.execute(query);
+	}
 	
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-       	setContentView(R.layout.activity_search);             
-        dataManager = DataManager.getInstance(this);
-        
-        Intent intent = getIntent();
-		DataManager dataManager = DataManager.getInstance(getApplicationContext());
-		String query = intent.getStringExtra("QUERY_STRING");
-        String[] words = query.split(" ");
-		//build a question list from this query
-        
-        List<Question> qList = dataManager.load();
-        List<Question> qSearchList = new ArrayList<Question>();
-        Iterator<Question> list = qList.iterator();
-		while(list.hasNext()){
-			Question question = list.next();
-			// if the body or title contains any search word, add question (if not already added)
-			for(String word : words) {
-				if((question.getBody().contains(word) || question.getTitle().contains(word)) && !qSearchList.contains(question)){
-					qSearchList.add(question);
-				}
-			}
+	private class SearchResultCallback implements Callback<List<GenericSearchItem>> {
+
+		@Override
+		public void run(List<GenericSearchItem> list) {
+			searchResult.clear();
+			searchResult.addAll(list);
+			listAdapter.update();
 		}
-        qla = new QuestionListAdapter(this, R.layout.list_question, qSearchList);  
-        ListView questionView = (ListView) findViewById(R.id.question_list);
-        questionView.setAdapter(qla);
-        questionView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 
-			@Override
-			public void onItemClick(AdapterView<?> parent, View view,
-					int position, long id) {
-				// run off to the question view if you tap an item
-				final Question question = qla.getItem(position);
-				UUID qId = question.getId();
-				Intent intent = new Intent(getApplicationContext(), QuestionActivity.class);
-				intent.putExtra("QUESTION_UUID", qId.toString());
-				startActivity(intent);
-			}
-		});
-    }
-
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.search, menu);
-		return true;
-	}
-
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		// Handle action bar item clicks here. The action bar will
-		// automatically handle clicks on the Home/Up button, so long
-		// as you specify a parent activity in AndroidManifest.xml.
-		int id = item.getItemId();
-		if (id == R.id.action_settings) {
-			return true;
-		}
-		return super.onOptionsItemSelected(item);
-	}
+	};
 }

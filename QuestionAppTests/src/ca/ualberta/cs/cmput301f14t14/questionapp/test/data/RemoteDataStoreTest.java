@@ -1,5 +1,6 @@
 package ca.ualberta.cs.cmput301f14t14.questionapp.test.data;
 
+import java.io.IOException;
 import java.util.List;
 
 import android.test.ActivityInstrumentationTestCase2;
@@ -36,8 +37,19 @@ public class RemoteDataStoreTest extends
 	public void testPutQuestion() {
 		Question q = MockData.questions.get(0);
 		localStore.putQuestion(q);
-		remoteStore.putQuestion(q);
-		Question retrievedQuestion = remoteStore.getQuestion(q.getId());
+		try {
+			remoteStore.putQuestion(q);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		Question retrievedQuestion = null;
+		try {
+			retrievedQuestion = remoteStore.getQuestion(q.getId());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		assertEquals(q, retrievedQuestion);
 	}
 	
@@ -45,10 +57,20 @@ public class RemoteDataStoreTest extends
 	 * Verify that a question list can be fetched from ElasticSearch
 	 */
 	public void testGetQuestionList() {
+		List<Question> ql = null;
 		Question q = MockData.questions.get(1);
 		localStore.putQuestion(q);
-		remoteStore.putQuestion(q);
-		List<Question> ql = remoteStore.getQuestionList();
+		try {
+			remoteStore.putQuestion(q);
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		try {
+			ql = remoteStore.getQuestionList();
+		} catch (IOException e) {
+			fail();
+		}
 		assertTrue(ql.size() != 0);
 		assertTrue(ql.contains(q));
 	}
@@ -58,8 +80,12 @@ public class RemoteDataStoreTest extends
 	 */
 	public void testPutAnswer() {
 		Answer a = MockData.answers.get(0);
-		localStore.putAnswer(a);
-		remoteStore.putAnswer(a);
+		try {
+			localStore.putAnswer(a);
+			remoteStore.putAnswer(a);
+		} catch (IOException e) {
+			
+		}
 		Answer retrievedAnswer = remoteStore.getAnswer(a.getId());
 		assertEquals(a, retrievedAnswer);
 	}
@@ -79,7 +105,12 @@ public class RemoteDataStoreTest extends
 	 */
 	public void testPutQuestionComment() {
 		Comment<Question> c = MockData.qcomments.get(0);
-		remoteStore.putQComment(c);
+		try {
+			remoteStore.putQComment(c);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		Comment<Question> retrievedComment = remoteStore.getQComment(c.getId());
 		assertEquals(c, retrievedComment);
 	}

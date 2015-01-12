@@ -1,5 +1,6 @@
 package ca.ualberta.cs.cmput301f14t14.questionapp.test;
 
+import java.io.IOException;
 import java.util.UUID;
 
 import android.test.ActivityInstrumentationTestCase2;
@@ -105,14 +106,20 @@ public class QuestionTest extends ActivityInstrumentationTestCase2<MainActivity>
 	/**
 	 * UC4 TC4.4- Create Local Question, and push
 	 * to remote server on network restoration
+	 * @throws IOException 
 	 */
 	
-	public void testLocalQuestionCreate() {
+	public void testLocalQuestionCreate() throws IOException {
 		Question q = new Question(title, body, author, image);
 		local.putQuestion(q);
 		UUID id = q.getId();
 		assertNotNull(manager.getQuestion(id, null));
-		remote.putQuestion(q);
+		try {
+			remote.putQuestion(q);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		assertNotNull(remote.getQuestion(id));
 	}
 	
@@ -150,7 +157,7 @@ public class QuestionTest extends ActivityInstrumentationTestCase2<MainActivity>
 	public void testReadQuestionLater() {
 		Question q = new Question(title, body, author, null);
 		ClientData cd = new ClientData(getActivity().getApplicationContext());
-		cd.markQuestionReadLater(q.getId());
+		cd.markReadLater(q.getId());
 		UUID id = q.getId();
 		assertNotNull(local.getQuestion(id));
 	}
